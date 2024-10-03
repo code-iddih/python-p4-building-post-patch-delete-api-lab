@@ -23,12 +23,29 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
+
+# Define a PATCH block inside of the /bakeries/<int:id> route that updates the name of the bakery in the database and returns its data as JSON. 
+# As with the previous POST block, the request will send data in a form. The form does not need to include values for all of the bakery's attributes.
+
+@app.route('/bakeries/<int:id>', methods=['PATCH'])
 def bakery_by_id(id):
 
     bakery = Bakery.query.filter_by(id=id).first()
     bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+
+    if request.method == 'PATCH':
+        for attr in request.form:
+            setattr(bakery, attr, request.form.get(attr))
+
+        db.session.add(bakery)
+        db.session.commit()
+
+        response = make_response(
+            bakery_serialized,
+            200
+        )
+
+        return response
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
@@ -44,6 +61,71 @@ def most_expensive_baked_good():
     most_expensive = BakedGood.query.order_by(BakedGood.price.desc()).limit(1).first()
     most_expensive_serialized = most_expensive.to_dict()
     return make_response( most_expensive_serialized,   200  )
+
+
+# Define a POST block inside of a /baked_goods route that creates a new baked good 
+# in the database and returns its data as JSON. The request will send data in a form.
+
+@app.route('/baked_goods', methods=['GET', 'POST'])
+def baked_goods():
+
+    if request.method == 'GET':
+        baked_goods = []
+        for baked_good in BakedGood.query.all():
+            baked_dict = baked_good.to_dict()
+            baked_goods.append(baked_dict)
+
+        response = make_response(
+            baked_goods,
+            200
+        )
+
+        return response
+
+    elif request.method == 'POST':
+        new_baked_dict = BakedGood(
+            name=request.form.get("name"),
+            price=request.form.get("price"),
+            bakery_id=request.form.get("bakery_id"),
+        )
+
+        db.session.add(new_baked_dict)
+        db.session.commit()
+
+        baked_dict = new_baked_dict.to_dict()
+
+        response = make_response(
+            baked_dict,
+            201
+        )
+
+        return response
+    
+
+# Define a DELETE block inside of a /baked_goods/<int:id> route that deletes the baked good 
+# from the database and returns a JSON message confirming that the record was successfully deleted.
+
+@app.route('/baked_goods/<int:id>', methods=['DELETE'])
+def delete_baked_goods(id):
+
+    good = BakedGood.query.filter(BakedGood.id == id).first()
+
+    if request.method == 'DELETE':
+            db.session.delete(good)
+            db.session.commit()
+
+            response_body = {
+                "delete_successful": True,
+                "message": "Baked good deleted."
+            }
+
+            response = make_response(
+                response_body,
+                200
+            )
+
+            return response   
+
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
